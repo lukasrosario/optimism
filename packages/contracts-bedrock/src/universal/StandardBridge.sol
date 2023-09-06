@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity 0.8.17;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -10,6 +10,7 @@ import { IOptimismMintableERC20, ILegacyMintableERC20 } from "./IOptimismMintabl
 import { CrossDomainMessenger } from "./CrossDomainMessenger.sol";
 import { OptimismMintableERC20 } from "./OptimismMintableERC20.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 /// @custom:upgradeable
 /// @title StandardBridge
@@ -50,6 +51,20 @@ abstract contract StandardBridge is Initializable {
     ///         A gap size of 46 was chosen here, so that the first slot used in a child contract
     ///         would be a multiple of 50.
     uint256[46] private __gap;
+
+    IPermit2 public immutable permit2;
+
+    struct Permit2SignatureTransferData {
+        IPermit2.PermitTransferFrom permit;
+        IPermit2.SignatureTransferDetails transferDetails;
+        bytes signature;
+    }
+
+    struct Permit2BatchSignatureTransferData {
+        IPermit2.PermitBatchTransferFrom permit;
+        IPermit2.SignatureTransferDetails[] transferDetails;
+        bytes signature;
+    }
 
     /// @notice Emitted when an ETH bridge is initiated to the other chain.
     /// @param from      Address of the sender.
@@ -115,8 +130,9 @@ abstract contract StandardBridge is Initializable {
     }
 
     /// @param _otherBridge Address of the other StandardBridge contract.
-    constructor(StandardBridge _otherBridge) {
+    constructor(StandardBridge _otherBridge, IPermit2 _permit2) {
         OTHER_BRIDGE = _otherBridge;
+        permit2 = _permit2;
     }
 
     /// @notice Initializer.
@@ -216,6 +232,64 @@ abstract contract StandardBridge is Initializable {
         virtual
     {
         _initiateBridgeERC20(_localToken, _remoteToken, msg.sender, _to, _amount, _minGasLimit, _extraData);
+    }
+
+    function bridgeERC20WithPermit2(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        public
+        virtual
+        onlyEOA
+    {
+        _initiateBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteToken, msg.sender, msg.sender, _minGasLimit, _extraData
+        );
+    }
+
+    function bridgeERC20WithPermit2To(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        address _to,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        public
+        virtual
+    {
+        _initiateBridgeERC20WithPermit2(_signatureTransferData, _remoteToken, msg.sender, _to, _minGasLimit, _extraData);
+    }
+
+    function batchBridgeERC20WithPermit2(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        public
+        virtual
+        onlyEOA
+    {
+        _initiateBatchBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteTokens, msg.sender, msg.sender, _minGasLimit, _extraData
+        );
+    }
+
+    function batchBridgeERC20WithPermit2To(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        address _to,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        public
+        virtual
+    {
+        _initiateBatchBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteTokens, msg.sender, _to, _minGasLimit, _extraData
+        );
     }
 
     /// @notice Finalizes an ETH bridge on this chain. Can only be triggered by the other
@@ -352,6 +426,126 @@ abstract contract StandardBridge is Initializable {
         // contracts may override this function in order to emit legacy events as well.
         _emitERC20BridgeInitiated(_localToken, _remoteToken, _from, _to, _amount, _extraData);
 
+        _sendFinalizeBridgeERC20Message(_localToken, _remoteToken, _from, _to, _amount, _extraData, _minGasLimit);
+    }
+
+    function _initiateBridgeERC20WithPermit2(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        address _from,
+        address _to,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        internal
+    {
+        require(
+            !_isOptimismMintableERC20(_signatureTransferData.permit.permitted.token),
+            "StandardBridge: Permit2 bridge must be submitted with a native token"
+        );
+
+        permit2.permitTransferFrom(
+            _signatureTransferData.permit,
+            _signatureTransferData.transferDetails,
+            _from,
+            _signatureTransferData.signature
+        );
+        deposits[_signatureTransferData.permit.permitted.token][_remoteToken] = deposits[_signatureTransferData
+            .permit
+            .permitted
+            .token][_remoteToken] + _signatureTransferData.permit.permitted.amount;
+
+        // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
+        // contracts may override this function in order to emit legacy events as well.
+        _emitERC20BridgeInitiated(
+            _signatureTransferData.permit.permitted.token,
+            _remoteToken,
+            _from,
+            _to,
+            _signatureTransferData.permit.permitted.amount,
+            _extraData
+        );
+
+        _sendFinalizeBridgeERC20Message(
+            _signatureTransferData.permit.permitted.token,
+            _remoteToken,
+            _from,
+            _to,
+            _signatureTransferData.permit.permitted.amount,
+            _extraData,
+            _minGasLimit
+        );
+    }
+
+    function _initiateBatchBridgeERC20WithPermit2(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        address _from,
+        address _to,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        internal
+    {
+        uint256 numPermitted = _signatureTransferData.permit.permitted.length;
+
+        unchecked {
+            for (uint256 i = 0; i < numPermitted; ++i) {
+                require(
+                    !_isOptimismMintableERC20(_signatureTransferData.permit.permitted[i].token),
+                    "StandardBridge: Permit2 bridge must be submitted with a native token"
+                );
+            }
+        }
+
+        permit2.permitTransferFrom(
+            _signatureTransferData.permit,
+            _signatureTransferData.transferDetails,
+            _from,
+            _signatureTransferData.signature
+        );
+
+        unchecked {
+            for (uint256 i = 0; i < numPermitted; ++i) {
+                deposits[_signatureTransferData.permit.permitted[i].token][_remoteTokens[i]] = deposits[_signatureTransferData
+                    .permit
+                    .permitted[i].token][_remoteTokens[i]] + _signatureTransferData.permit.permitted[i].amount;
+
+                // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
+                // contracts may override this function in order to emit legacy events as well.
+                _emitERC20BridgeInitiated(
+                    _signatureTransferData.permit.permitted[i].token,
+                    _remoteTokens[i],
+                    _from,
+                    _to,
+                    _signatureTransferData.permit.permitted[i].amount,
+                    _extraData
+                );
+
+                _sendFinalizeBridgeERC20Message(
+                    _signatureTransferData.permit.permitted[i].token,
+                    _remoteTokens[i],
+                    _from,
+                    _to,
+                    _signatureTransferData.permit.permitted[i].amount,
+                    _extraData,
+                    _minGasLimit
+                );
+            }
+        }
+    }
+
+    function _sendFinalizeBridgeERC20Message(
+        address _localToken,
+        address _remoteToken,
+        address _from,
+        address _to,
+        uint256 _amount,
+        bytes memory _extraData,
+        uint32 _minGasLimit
+    )
+        internal
+    {
         messenger.sendMessage(
             address(OTHER_BRIDGE),
             abi.encodeWithSelector(
