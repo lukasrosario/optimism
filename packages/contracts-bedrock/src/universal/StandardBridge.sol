@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.15;
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ERC165Checker } from "@openzeppelin/contracts/utils/introspection/ERC165Checker.sol";
@@ -29,6 +29,8 @@ abstract contract StandardBridge is Initializable {
     /// @custom:network-specific
     StandardBridge public immutable OTHER_BRIDGE;
 
+    IPermit2 public immutable permit2;
+
     /// @custom:legacy
     /// @custom:spacer messenger
     /// @notice Spacer for backwards compatibility.
@@ -51,8 +53,6 @@ abstract contract StandardBridge is Initializable {
     ///         A gap size of 46 was chosen here, so that the first slot used in a child contract
     ///         would be a multiple of 50.
     uint256[46] private __gap;
-
-    IPermit2 public immutable permit2;
 
     struct Permit2SignatureTransferData {
         IPermit2.PermitTransferFrom permit;
@@ -351,7 +351,7 @@ abstract contract StandardBridge is Initializable {
 
             OptimismMintableERC20(_localToken).mint(_to, _amount);
         } else {
-            deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
+            _decreaseDeposits(_localToken, _remoteToken, _amount);
             IERC20(_localToken).safeTransfer(_to, _amount);
         }
 
@@ -419,7 +419,7 @@ abstract contract StandardBridge is Initializable {
             OptimismMintableERC20(_localToken).burn(_from, _amount);
         } else {
             IERC20(_localToken).safeTransferFrom(_from, address(this), _amount);
-            deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
+            _increaseDeposits(_localToken, _remoteToken, _amount);
         }
 
         // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
@@ -450,10 +450,9 @@ abstract contract StandardBridge is Initializable {
             _from,
             _signatureTransferData.signature
         );
-        deposits[_signatureTransferData.permit.permitted.token][_remoteToken] = deposits[_signatureTransferData
-            .permit
-            .permitted
-            .token][_remoteToken] + _signatureTransferData.permit.permitted.amount;
+        _increaseDeposits(
+            _signatureTransferData.permit.permitted.token, _remoteToken, _signatureTransferData.permit.permitted.amount
+        );
 
         // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
         // contracts may override this function in order to emit legacy events as well.
@@ -490,7 +489,7 @@ abstract contract StandardBridge is Initializable {
         uint256 numPermitted = _signatureTransferData.permit.permitted.length;
 
         unchecked {
-            for (uint256 i = 0; i < numPermitted; ++i) {
+            for (uint256 i; i < numPermitted; ++i) {
                 require(
                     !_isOptimismMintableERC20(_signatureTransferData.permit.permitted[i].token),
                     "StandardBridge: Permit2 bridge must be submitted with a native token"
@@ -505,12 +504,20 @@ abstract contract StandardBridge is Initializable {
             _signatureTransferData.signature
         );
 
-        unchecked {
-            for (uint256 i = 0; i < numPermitted; ++i) {
-                deposits[_signatureTransferData.permit.permitted[i].token][_remoteTokens[i]] = deposits[_signatureTransferData
-                    .permit
-                    .permitted[i].token][_remoteTokens[i]] + _signatureTransferData.permit.permitted[i].amount;
+        for (uint256 i; i < numPermitted;) {
+            _increaseDeposits(
+                _signatureTransferData.permit.permitted[i].token,
+                _remoteTokens[i],
+                _signatureTransferData.permit.permitted[i].amount
+            );
 
+            unchecked {
+                ++i;
+            }
+        }
+
+        unchecked {
+            for (uint256 i; i < numPermitted; ++i) {
                 // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
                 // contracts may override this function in order to emit legacy events as well.
                 _emitERC20BridgeInitiated(
@@ -533,6 +540,14 @@ abstract contract StandardBridge is Initializable {
                 );
             }
         }
+    }
+
+    function _increaseDeposits(address _localToken, address _remoteToken, uint256 _amount) internal {
+        deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
+    }
+
+    function _decreaseDeposits(address _localToken, address _remoteToken, uint256 _amount) internal {
+        deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
     }
 
     function _sendFinalizeBridgeERC20Message(

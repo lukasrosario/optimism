@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.17;
+pragma solidity 0.8.15;
 
 import { Predeploys } from "../libraries/Predeploys.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
@@ -52,14 +52,14 @@ contract L2StandardBridge is StandardBridge, Semver {
         bytes extraData
     );
 
-    /// @custom:semver 1.2.1
+    /// @custom:semver 1.3.0
     /// @notice Constructs the L2StandardBridge contract.
     /// @param _otherBridge Address of the L1StandardBridge.
     constructor(
         StandardBridge _otherBridge,
         IPermit2 _permit2
     )
-        Semver(1, 2, 1)
+        Semver(1, 3, 0)
         StandardBridge(_otherBridge, _permit2)
     {
         initialize();
