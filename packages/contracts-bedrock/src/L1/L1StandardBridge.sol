@@ -172,66 +172,6 @@ contract L1StandardBridge is StandardBridge, ISemver {
         _initiateERC20Deposit(_l1Token, _l2Token, msg.sender, _to, _amount, _minGasLimit, _extraData);
     }
 
-    function depositERC20WithPermit2(
-        Permit2SignatureTransferData calldata _signatureTransferData,
-        address _l2Token,
-        uint32 _minGasLimit,
-        bytes calldata _extraData
-    )
-        external
-        virtual
-        onlyEOA
-    {
-        _initiateERC20DepositWithPermit2(
-            _signatureTransferData, _l2Token, msg.sender, msg.sender, _minGasLimit, _extraData
-        );
-    }
-
-    function depositERC20WithPermit2To(
-        Permit2SignatureTransferData calldata _signatureTransferData,
-        address _l2Token,
-        address _to,
-        uint32 _minGasLimit,
-        bytes calldata _extraData
-    )
-        external
-        virtual
-        onlyEOA
-    {
-        _initiateERC20DepositWithPermit2(_signatureTransferData, _l2Token, msg.sender, _to, _minGasLimit, _extraData);
-    }
-
-    function batchDepositERC20WithPermit2(
-        Permit2BatchSignatureTransferData calldata _signatureTransferData,
-        address[] calldata _l2Tokens,
-        uint32 _minGasLimit,
-        bytes calldata _extraData
-    )
-        external
-        virtual
-        onlyEOA
-    {
-        _initiateBatchERC20DepositWithPermit2(
-            _signatureTransferData, _l2Tokens, msg.sender, msg.sender, _minGasLimit, _extraData
-        );
-    }
-
-    function batchDepositERC20WithPermit2To(
-        Permit2BatchSignatureTransferData calldata _signatureTransferData,
-        address[] calldata _l2Tokens,
-        address _to,
-        uint32 _minGasLimit,
-        bytes calldata _extraData
-    )
-        external
-        virtual
-        onlyEOA
-    {
-        _initiateBatchERC20DepositWithPermit2(
-            _signatureTransferData, _l2Tokens, msg.sender, _to, _minGasLimit, _extraData
-        );
-    }
-
     /// @custom:legacy
     /// @notice Finalizes a withdrawal of ETH from L2.
     /// @param _from      Address of the withdrawer on L2.

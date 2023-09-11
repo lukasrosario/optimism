@@ -233,6 +233,15 @@ abstract contract StandardBridge is Initializable {
         _initiateBridgeERC20(_localToken, _remoteToken, msg.sender, _to, _amount, _minGasLimit, _extraData);
     }
 
+    /// @notice Sends ERC20 tokens to the sender's address on the other chain using a Permit2 signature transfer.
+    ///         Note that if the ERC20 token is not native to this chain, the ERC20 bridge will fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function bridgeERC20WithPermit2(
         Permit2SignatureTransferData calldata _signatureTransferData,
         address _remoteToken,
@@ -248,6 +257,17 @@ abstract contract StandardBridge is Initializable {
         );
     }
 
+    /// @notice Sends ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer.  Note that if the ERC20 token is not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function bridgeERC20WithPermit2To(
         Permit2SignatureTransferData calldata _signatureTransferData,
         address _remoteToken,
@@ -261,6 +281,16 @@ abstract contract StandardBridge is Initializable {
         _initiateBridgeERC20WithPermit2(_signatureTransferData, _remoteToken, msg.sender, _to, _minGasLimit, _extraData);
     }
 
+    /// @notice Sends multiple different ERC20 tokens to the sender's address on the other chain using a Permit2
+    ///         signature transfer. Note that if the ERC20 tokens are not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function batchBridgeERC20WithPermit2(
         Permit2BatchSignatureTransferData calldata _signatureTransferData,
         address[] calldata _remoteTokens,
@@ -276,6 +306,17 @@ abstract contract StandardBridge is Initializable {
         );
     }
 
+    /// @notice Sends multiple different ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer. Note that if the ERC20 tokens are not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function batchBridgeERC20WithPermit2To(
         Permit2BatchSignatureTransferData calldata _signatureTransferData,
         address[] calldata _remoteTokens,
@@ -350,7 +391,7 @@ abstract contract StandardBridge is Initializable {
 
             OptimismMintableERC20(_localToken).mint(_to, _amount);
         } else {
-            _decreaseDeposits(_localToken, _remoteToken, _amount);
+            deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
             IERC20(_localToken).safeTransfer(_to, _amount);
         }
 
@@ -418,7 +459,7 @@ abstract contract StandardBridge is Initializable {
             OptimismMintableERC20(_localToken).burn(_from, _amount);
         } else {
             IERC20(_localToken).safeTransferFrom(_from, address(this), _amount);
-            _increaseDeposits(_localToken, _remoteToken, _amount);
+            deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
         }
 
         // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
@@ -428,6 +469,16 @@ abstract contract StandardBridge is Initializable {
         _sendFinalizeBridgeERC20Message(_localToken, _remoteToken, _from, _to, _amount, _extraData, _minGasLimit);
     }
 
+    /// @notice Sends ERC20 tokens to a receiver's address on the other chain using a Permit2 signature transfer.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _from                  Address of the sender.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function _initiateBridgeERC20WithPermit2(
         Permit2SignatureTransferData calldata _signatureTransferData,
         address _remoteToken,
@@ -449,9 +500,10 @@ abstract contract StandardBridge is Initializable {
             _from,
             _signatureTransferData.signature
         );
-        _increaseDeposits(
-            _signatureTransferData.permit.permitted.token, _remoteToken, _signatureTransferData.permit.permitted.amount
-        );
+        deposits[_signatureTransferData.permit.permitted.token][_remoteToken] = deposits[_signatureTransferData
+            .permit
+            .permitted
+            .token][_remoteToken] + _signatureTransferData.permit.permitted.amount;
 
         // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
         // contracts may override this function in order to emit legacy events as well.
@@ -475,6 +527,17 @@ abstract contract StandardBridge is Initializable {
         );
     }
 
+    /// @notice Sends multiple different ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _from                  Address of the sender.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
     function _initiateBatchBridgeERC20WithPermit2(
         Permit2BatchSignatureTransferData calldata _signatureTransferData,
         address[] calldata _remoteTokens,
@@ -504,12 +567,9 @@ abstract contract StandardBridge is Initializable {
         );
 
         for (uint256 i; i < numPermitted;) {
-            _increaseDeposits(
-                _signatureTransferData.permit.permitted[i].token,
-                _remoteTokens[i],
-                _signatureTransferData.permit.permitted[i].amount
-            );
-
+            deposits[_signatureTransferData.permit.permitted[i].token][_remoteTokens[i]] = deposits[_signatureTransferData
+                .permit
+                .permitted[i].token][_remoteTokens[i]] + _signatureTransferData.permit.permitted[i].amount;
             unchecked {
                 ++i;
             }
@@ -541,14 +601,14 @@ abstract contract StandardBridge is Initializable {
         }
     }
 
-    function _increaseDeposits(address _localToken, address _remoteToken, uint256 _amount) internal {
-        deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] + _amount;
-    }
-
-    function _decreaseDeposits(address _localToken, address _remoteToken, uint256 _amount) internal {
-        deposits[_localToken][_remoteToken] = deposits[_localToken][_remoteToken] - _amount;
-    }
-
+    /// @notice Sends a finalizeBridgeERC20 message to the other bridge.
+    /// @param _localToken  Address of the ERC20 on this chain.
+    /// @param _remoteToken Address of the corresponding token on the remote chain.
+    /// @param _from        Address of the sender.
+    /// @param _to          Address of the receiver.
+    /// @param _amount      Amount of the ERC20 being bridged.
+    /// @param _extraData   Extra data to be sent with the transaction.
+    /// @param _minGasLimit Minimum amount of gas that the bridge can be relayed with.
     function _sendFinalizeBridgeERC20Message(
         address _localToken,
         address _remoteToken,
