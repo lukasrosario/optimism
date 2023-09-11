@@ -36,7 +36,6 @@ import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
 import { AlphabetVM } from "../test/FaultDisputeGame.t.sol";
 import "src/libraries/DisputeTypes.sol";
 import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
-import { Permit2 } from "src/Permit2/src/Permit2.sol";
 
 /// @title Deploy
 /// @notice Script used to deploy a bedrock system. The entire system is deployed within the `run` function.
@@ -129,7 +128,6 @@ contract Deploy is Deployer {
         deployL2OutputOracle();
         deployOptimismMintableERC20Factory();
         deploySystemConfig();
-        deployPermit2();
         deployL1StandardBridge();
         deployL1ERC721Bridge();
         deployDisputeGameFactory();
@@ -432,15 +430,6 @@ contract Deploy is Deployer {
         console.log("SystemConfig deployed at %s", address(config));
 
         addr_ = address(config);
-    }
-
-    /// @notice Deploy Permit2
-    function deployPermit2() public onlyDevnet broadcast returns (address addr_) {
-        Permit2 permit2 = new Permit2();
-        save("Permit2", address(permit2));
-        console.log("Permit2 deployed at %s", address(permit2));
-
-        addr_ = address(permit2);
     }
 
     /// @notice Deploy the L1StandardBridge
