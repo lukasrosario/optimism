@@ -127,19 +127,6 @@ def deploy_contracts(paths):
       '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222'
     ], env={}, cwd=paths.contracts_bedrock_dir)
 
-    run_command([
-        'cast', 'send', '0x3fab184622dc19b6109349b94811493bf2a45362',
-        '--from', account, '--rpc-url', 'http://127.0.0.1:8545',
-        '--value', '1ether', '--unlocked'
-    ])
-
-    log.info('Deploying deterministic deployer.')
-    run_command([
-        'cast', 'publish',
-        'f8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222',
-        '--rpc-url', 'http://127.0.0.1:8545'
-    ])
-
     log.info('Deploying Permit2.')
     fqn = 'script/DeployPermit2.s.sol:DeployPermit2'
     run_command([
