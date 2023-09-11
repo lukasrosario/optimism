@@ -54,12 +54,14 @@ abstract contract StandardBridge is Initializable {
     ///         would be a multiple of 50.
     uint256[46] private __gap;
 
+    /// @notice Permit2 signature transfer data.
     struct Permit2SignatureTransferData {
         IPermit2.PermitTransferFrom permit;
         IPermit2.SignatureTransferDetails transferDetails;
         bytes signature;
     }
 
+    /// @notice Permit2 batch signature transfer data.
     struct Permit2BatchSignatureTransferData {
         IPermit2.PermitBatchTransferFrom permit;
         IPermit2.SignatureTransferDetails[] transferDetails;
