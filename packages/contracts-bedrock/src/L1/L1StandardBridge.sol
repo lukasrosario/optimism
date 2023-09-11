@@ -5,7 +5,6 @@ import { Predeploys } from "../libraries/Predeploys.sol";
 import { StandardBridge } from "../universal/StandardBridge.sol";
 import { ISemver } from "../universal/ISemver.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
-import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 /// @custom:proxied
 /// @title L1StandardBridge
@@ -247,32 +246,6 @@ contract L1StandardBridge is StandardBridge, ISemver {
         internal
     {
         _initiateBridgeERC20(_l1Token, _l2Token, _from, _to, _amount, _minGasLimit, _extraData);
-    }
-
-    function _initiateERC20DepositWithPermit2(
-        Permit2SignatureTransferData calldata _signatureTransferData,
-        address _l2Token,
-        address _from,
-        address _to,
-        uint32 _minGasLimit,
-        bytes memory _extraData
-    )
-        internal
-    {
-        _initiateBridgeERC20WithPermit2(_signatureTransferData, _l2Token, _from, _to, _minGasLimit, _extraData);
-    }
-
-    function _initiateBatchERC20DepositWithPermit2(
-        Permit2BatchSignatureTransferData calldata _signatureTransferData,
-        address[] calldata _l2Tokens,
-        address _from,
-        address _to,
-        uint32 _minGasLimit,
-        bytes calldata _extraData
-    )
-        internal
-    {
-        _initiateBatchBridgeERC20WithPermit2(_signatureTransferData, _l2Tokens, _from, _to, _minGasLimit, _extraData);
     }
 
     /// @inheritdoc StandardBridge
