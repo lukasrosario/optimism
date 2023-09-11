@@ -5,7 +5,6 @@ import { StandardBridge } from "../src/universal/StandardBridge.sol";
 import { CommonTest } from "./CommonTest.t.sol";
 import { OptimismMintableERC20, ILegacyMintableERC20 } from "../src/universal/OptimismMintableERC20.sol";
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 /// @title StandardBridgeTester
 /// @notice Simple wrapper around the StandardBridge contract that exposes
@@ -13,10 +12,9 @@ import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 contract StandardBridgeTester is StandardBridge {
     constructor(
         address payable _messenger,
-        address payable _otherBridge,
-        address payable _permit2
+        address payable _otherBridge
     )
-        StandardBridge(StandardBridge(_otherBridge), IPermit2(_permit2))
+        StandardBridge(StandardBridge(_otherBridge))
     { }
 
     function isOptimismMintableERC20(address _token) external view returns (bool) {
@@ -69,8 +67,7 @@ contract StandardBridge_Stateless_Test is CommonTest {
 
         bridge = new StandardBridgeTester({
             _messenger: payable(address(0)),
-            _otherBridge: payable(address(0)),
-            _permit2: payable(address(0))
+            _otherBridge: payable(address(0))
         });
 
         mintable = new OptimismMintableERC20({

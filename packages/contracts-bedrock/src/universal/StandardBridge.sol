@@ -29,7 +29,7 @@ abstract contract StandardBridge is Initializable {
     /// @custom:network-specific
     StandardBridge public immutable OTHER_BRIDGE;
 
-    IPermit2 public immutable permit2;
+    IPermit2 internal constant permit2 = IPermit2(address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
 
     /// @custom:legacy
     /// @custom:spacer messenger
@@ -130,9 +130,8 @@ abstract contract StandardBridge is Initializable {
     }
 
     /// @param _otherBridge Address of the other StandardBridge contract.
-    constructor(StandardBridge _otherBridge, IPermit2 _permit2) {
+    constructor(StandardBridge _otherBridge) {
         OTHER_BRIDGE = _otherBridge;
-        permit2 = _permit2;
     }
 
     /// @notice Initializer.

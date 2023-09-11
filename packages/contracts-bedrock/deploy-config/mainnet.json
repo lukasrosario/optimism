@@ -38,6 +38,5 @@
   "gasPriceOracleScalar": 684000,
   "eip1559Denominator": 50,
   "eip1559Elasticity": 6,
-  "l2GenesisRegolithTimeOffset": "0x0",
-  "permit2Address": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+  "l2GenesisRegolithTimeOffset": "0x0"
 }

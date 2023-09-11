@@ -198,8 +198,6 @@ type DeployConfig struct {
 	// FundDevAccounts configures whether or not to fund the dev accounts. Should only be used
 	// during devnet deployments.
 	FundDevAccounts bool `json:"fundDevAccounts"`
-	// Permit2 address
-	Permit2Address common.Address `json:"permit2Address"`
 }
 
 // Copy will deeply copy the DeployConfig. This does a JSON roundtrip to copy
@@ -331,9 +329,6 @@ func (d *DeployConfig) Check() error {
 	// L2 block time must always be smaller than L1 block time
 	if d.L1BlockTime < d.L2BlockTime {
 		return fmt.Errorf("L2 block time (%d) is larger than L1 block time (%d)", d.L2BlockTime, d.L1BlockTime)
-	}
-	if d.Permit2Address == (common.Address{}) {
-		return fmt.Errorf("%w: Permit2Address cannot be address(0)", ErrInvalidDeployConfig)
 	}
 	return nil
 }

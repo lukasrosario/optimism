@@ -35,7 +35,6 @@ import { LegacyMintableERC20 } from "../src/legacy/LegacyMintableERC20.sol";
 import { SystemConfig } from "../src/L1/SystemConfig.sol";
 import { ResourceMetering } from "../src/L1/ResourceMetering.sol";
 import { Constants } from "../src/libraries/Constants.sol";
-import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 contract CommonTest is Test {
     address alice = address(128);
@@ -308,7 +307,6 @@ contract Bridge_Initializer is Messenger_Initializer {
     ERC20 NativeL2Token;
     ERC20 BadL2Token;
     OptimismMintableERC20 RemoteL1Token;
-    IPermit2 Permit2;
 
     event ETHDepositInitiated(address indexed from, address indexed to, uint256 amount, bytes data);
 
@@ -367,7 +365,7 @@ contract Bridge_Initializer is Messenger_Initializer {
         L1ChugSplashProxy proxy = new L1ChugSplashProxy(multisig);
         vm.mockCall(multisig, abi.encodeWithSelector(IL1ChugSplashDeployer.isUpgrading.selector), abi.encode(true));
         vm.startPrank(multisig);
-        proxy.setCode(address(new L1StandardBridge(Permit2)).code);
+        proxy.setCode(address(new L1StandardBridge()).code);
         vm.clearMockedCalls();
         address L1Bridge_Impl = proxy.getImplementation();
         vm.stopPrank();
@@ -381,9 +379,7 @@ contract Bridge_Initializer is Messenger_Initializer {
         // Deploy the L2StandardBridge, move it to the correct predeploy
         // address and then initialize it. It is safe to call initialize directly
         // on the proxy because the bytecode was set in state with `etch`.
-        vm.etch(
-            Predeploys.L2_STANDARD_BRIDGE, address(new L2StandardBridge(StandardBridge(payable(proxy)), Permit2)).code
-        );
+        vm.etch(Predeploys.L2_STANDARD_BRIDGE, address(new L2StandardBridge(StandardBridge(payable(proxy)))).code);
         L2Bridge = L2StandardBridge(payable(Predeploys.L2_STANDARD_BRIDGE));
         L2Bridge.initialize();
 

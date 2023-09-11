@@ -55,13 +55,7 @@ contract L2StandardBridge is StandardBridge, Semver {
     /// @custom:semver 1.3.0
     /// @notice Constructs the L2StandardBridge contract.
     /// @param _otherBridge Address of the L1StandardBridge.
-    constructor(
-        StandardBridge _otherBridge,
-        IPermit2 _permit2
-    )
-        Semver(1, 3, 0)
-        StandardBridge(_otherBridge, _permit2)
-    {
+    constructor(StandardBridge _otherBridge) Semver(1, 3, 0) StandardBridge(_otherBridge) {
         initialize();
     }
 
