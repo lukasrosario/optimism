@@ -10,6 +10,7 @@ import { IOptimismMintableERC20, ILegacyMintableERC20 } from "./IOptimismMintabl
 import { CrossDomainMessenger } from "./CrossDomainMessenger.sol";
 import { OptimismMintableERC20 } from "./OptimismMintableERC20.sol";
 import { Initializable } from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 /// @custom:upgradeable
 /// @title StandardBridge
@@ -27,6 +28,8 @@ abstract contract StandardBridge is Initializable {
     /// @custom:legacy
     /// @custom:network-specific
     StandardBridge public immutable OTHER_BRIDGE;
+
+    IPermit2 internal constant permit2 = IPermit2(address(0x000000000022D473030F116dDEE9F6B43aC78BA3));
 
     /// @custom:legacy
     /// @custom:spacer messenger
@@ -50,6 +53,20 @@ abstract contract StandardBridge is Initializable {
     ///         A gap size of 46 was chosen here, so that the first slot used in a child contract
     ///         would be a multiple of 50.
     uint256[46] private __gap;
+
+    /// @notice Permit2 signature transfer data.
+    struct Permit2SignatureTransferData {
+        IPermit2.PermitTransferFrom permit;
+        IPermit2.SignatureTransferDetails transferDetails;
+        bytes signature;
+    }
+
+    /// @notice Permit2 batch signature transfer data.
+    struct Permit2BatchSignatureTransferData {
+        IPermit2.PermitBatchTransferFrom permit;
+        IPermit2.SignatureTransferDetails[] transferDetails;
+        bytes signature;
+    }
 
     /// @notice Emitted when an ETH bridge is initiated to the other chain.
     /// @param from      Address of the sender.
@@ -218,6 +235,105 @@ abstract contract StandardBridge is Initializable {
         _initiateBridgeERC20(_localToken, _remoteToken, msg.sender, _to, _amount, _minGasLimit, _extraData);
     }
 
+    /// @notice Sends ERC20 tokens to the sender's address on the other chain using a Permit2 signature transfer.
+    ///         Note that if the ERC20 token is not native to this chain, the ERC20 bridge will fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function bridgeERC20WithPermit2(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        public
+        virtual
+        onlyEOA
+    {
+        _initiateBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteToken, msg.sender, msg.sender, _minGasLimit, _extraData
+        );
+    }
+
+    /// @notice Sends ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer.  Note that if the ERC20 token is not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function bridgeERC20WithPermit2To(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        address _to,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        public
+        virtual
+    {
+        _initiateBridgeERC20WithPermit2(_signatureTransferData, _remoteToken, msg.sender, _to, _minGasLimit, _extraData);
+    }
+
+    /// @notice Sends multiple different ERC20 tokens to the sender's address on the other chain using a Permit2
+    ///         signature transfer. Note that if the ERC20 tokens are not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function batchBridgeERC20WithPermit2(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        public
+        virtual
+        onlyEOA
+    {
+        _initiateBatchBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteTokens, msg.sender, msg.sender, _minGasLimit, _extraData
+        );
+    }
+
+    /// @notice Sends multiple different ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer. Note that if the ERC20 tokens are not native to this chain, the ERC20 bridge will
+    ///         fail.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function batchBridgeERC20WithPermit2To(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        address _to,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        public
+        virtual
+    {
+        _initiateBatchBridgeERC20WithPermit2(
+            _signatureTransferData, _remoteTokens, msg.sender, _to, _minGasLimit, _extraData
+        );
+    }
+
     /// @notice Finalizes an ETH bridge on this chain. Can only be triggered by the other
     ///         StandardBridge contract on the remote chain.
     /// @param _from      Address of the sender.
@@ -352,6 +468,160 @@ abstract contract StandardBridge is Initializable {
         // contracts may override this function in order to emit legacy events as well.
         _emitERC20BridgeInitiated(_localToken, _remoteToken, _from, _to, _amount, _extraData);
 
+        _sendFinalizeBridgeERC20Message(_localToken, _remoteToken, _from, _to, _amount, _extraData, _minGasLimit);
+    }
+
+    /// @notice Sends ERC20 tokens to a receiver's address on the other chain using a Permit2 signature transfer.
+    /// @param _signatureTransferData Information used by Permit2 to execute an ERC20 transfer & a corresponding
+    ///                               signature to verify.
+    /// @param _remoteToken           Address of the corresponding token on the remote chain.
+    /// @param _from                  Address of the sender.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function _initiateBridgeERC20WithPermit2(
+        Permit2SignatureTransferData calldata _signatureTransferData,
+        address _remoteToken,
+        address _from,
+        address _to,
+        uint32 _minGasLimit,
+        bytes memory _extraData
+    )
+        internal
+    {
+        require(
+            !_isOptimismMintableERC20(_signatureTransferData.permit.permitted.token),
+            "StandardBridge: Permit2 bridge must be submitted with a native token"
+        );
+
+        permit2.permitTransferFrom(
+            _signatureTransferData.permit,
+            _signatureTransferData.transferDetails,
+            _from,
+            _signatureTransferData.signature
+        );
+        deposits[_signatureTransferData.permit.permitted.token][_remoteToken] = deposits[_signatureTransferData
+            .permit
+            .permitted
+            .token][_remoteToken] + _signatureTransferData.permit.permitted.amount;
+
+        // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
+        // contracts may override this function in order to emit legacy events as well.
+        _emitERC20BridgeInitiated(
+            _signatureTransferData.permit.permitted.token,
+            _remoteToken,
+            _from,
+            _to,
+            _signatureTransferData.permit.permitted.amount,
+            _extraData
+        );
+
+        _sendFinalizeBridgeERC20Message(
+            _signatureTransferData.permit.permitted.token,
+            _remoteToken,
+            _from,
+            _to,
+            _signatureTransferData.permit.permitted.amount,
+            _extraData,
+            _minGasLimit
+        );
+    }
+
+    /// @notice Sends multiple different ERC20 tokens to a receiver's address on the other chain using a Permit2
+    ///         signature transfer.
+    /// @param _signatureTransferData Information used by Permit2 to execute multiple ERC20 transfers & a
+    ///                               corresponding signature to verify.
+    /// @param _remoteTokens          Address of the corresponding tokens on the remote chain.
+    /// @param _from                  Address of the sender.
+    /// @param _to                    Address of the receiver.
+    /// @param _minGasLimit           Minimum amount of gas that the bridge can be relayed with.
+    /// @param _extraData             Extra data to be sent with the transaction. Note that the recipient will
+    ///                               not be triggered with this data, but it will be emitted and can be used
+    ///                               to identify the transaction.
+    function _initiateBatchBridgeERC20WithPermit2(
+        Permit2BatchSignatureTransferData calldata _signatureTransferData,
+        address[] calldata _remoteTokens,
+        address _from,
+        address _to,
+        uint32 _minGasLimit,
+        bytes calldata _extraData
+    )
+        internal
+    {
+        uint256 numPermitted = _signatureTransferData.permit.permitted.length;
+
+        unchecked {
+            for (uint256 i; i < numPermitted; ++i) {
+                require(
+                    !_isOptimismMintableERC20(_signatureTransferData.permit.permitted[i].token),
+                    "StandardBridge: Permit2 bridge must be submitted with a native token"
+                );
+            }
+        }
+
+        permit2.permitTransferFrom(
+            _signatureTransferData.permit,
+            _signatureTransferData.transferDetails,
+            _from,
+            _signatureTransferData.signature
+        );
+
+        for (uint256 i; i < numPermitted;) {
+            deposits[_signatureTransferData.permit.permitted[i].token][_remoteTokens[i]] = deposits[_signatureTransferData
+                .permit
+                .permitted[i].token][_remoteTokens[i]] + _signatureTransferData.permit.permitted[i].amount;
+            unchecked {
+                ++i;
+            }
+        }
+
+        unchecked {
+            for (uint256 i; i < numPermitted; ++i) {
+                // Emit the correct events. By default this will be ERC20BridgeInitiated, but child
+                // contracts may override this function in order to emit legacy events as well.
+                _emitERC20BridgeInitiated(
+                    _signatureTransferData.permit.permitted[i].token,
+                    _remoteTokens[i],
+                    _from,
+                    _to,
+                    _signatureTransferData.permit.permitted[i].amount,
+                    _extraData
+                );
+
+                _sendFinalizeBridgeERC20Message(
+                    _signatureTransferData.permit.permitted[i].token,
+                    _remoteTokens[i],
+                    _from,
+                    _to,
+                    _signatureTransferData.permit.permitted[i].amount,
+                    _extraData,
+                    _minGasLimit
+                );
+            }
+        }
+    }
+
+    /// @notice Sends a finalizeBridgeERC20 message to the other bridge.
+    /// @param _localToken  Address of the ERC20 on this chain.
+    /// @param _remoteToken Address of the corresponding token on the remote chain.
+    /// @param _from        Address of the sender.
+    /// @param _to          Address of the receiver.
+    /// @param _amount      Amount of the ERC20 being bridged.
+    /// @param _extraData   Extra data to be sent with the transaction.
+    /// @param _minGasLimit Minimum amount of gas that the bridge can be relayed with.
+    function _sendFinalizeBridgeERC20Message(
+        address _localToken,
+        address _remoteToken,
+        address _from,
+        address _to,
+        uint256 _amount,
+        bytes memory _extraData,
+        uint32 _minGasLimit
+    )
+        internal
+    {
         messenger.sendMessage(
             address(OTHER_BRIDGE),
             abi.encodeWithSelector(

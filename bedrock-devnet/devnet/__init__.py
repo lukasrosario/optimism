@@ -53,6 +53,7 @@ def main():
     monorepo_dir = os.path.abspath(args.monorepo_dir)
     devnet_dir = pjoin(monorepo_dir, '.devnet')
     contracts_bedrock_dir = pjoin(monorepo_dir, 'packages', 'contracts-bedrock')
+    permit2_dir = pjoin(contracts_bedrock_dir, 'lib', 'permit2')
     deployment_dir = pjoin(contracts_bedrock_dir, 'deployments', 'devnetL1')
     op_node_dir = pjoin(args.monorepo_dir, 'op-node')
     ops_bedrock_dir = pjoin(monorepo_dir, 'ops-bedrock')
@@ -66,6 +67,7 @@ def main():
       mono_repo_dir=monorepo_dir,
       devnet_dir=devnet_dir,
       contracts_bedrock_dir=contracts_bedrock_dir,
+      permit2_dir=permit2_dir,
       deployment_dir=deployment_dir,
       l1_deployments_path=pjoin(deployment_dir, '.deploy'),
       deploy_config_dir=deploy_config_dir,
@@ -124,6 +126,14 @@ def deploy_contracts(paths):
       'cast', 'publish', '--rpc-url', 'http://127.0.0.1:8545',
       '0xf8a58085174876e800830186a08080b853604580600e600039806000f350fe7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe03601600081602082378035828234f58015156039578182fd5b8082525050506014600cf31ba02222222222222222222222222222222222222222222222222222222222222222a02222222222222222222222222222222222222222222222222222222222222222'
     ], env={}, cwd=paths.contracts_bedrock_dir)
+
+    log.info('Deploying Permit2.')
+    fqn = 'script/DeployPermit2.s.sol:DeployPermit2'
+    run_command([
+        'forge', 'script', fqn, '--sender', account,
+        '--rpc-url', 'http://127.0.0.1:8545', '--broadcast',
+        '--unlocked'
+    ], env={}, cwd=paths.permit2_dir)
 
     fqn = 'scripts/Deploy.s.sol:Deploy'
     run_command([
