@@ -6,7 +6,6 @@ import { StandardBridge } from "../universal/StandardBridge.sol";
 import { Semver } from "../universal/Semver.sol";
 import { OptimismMintableERC20 } from "../universal/OptimismMintableERC20.sol";
 import { CrossDomainMessenger } from "../universal/CrossDomainMessenger.sol";
-import { IPermit2 } from "@uniswap/permit2/interfaces/IPermit2.sol";
 
 /// @custom:proxied
 /// @custom:predeploy 0x4200000000000000000000000000000000000010
